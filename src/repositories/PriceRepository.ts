@@ -26,7 +26,7 @@ export class PriceRepository {
       if (from) { sql += ' AND recorded_at >= ?'; params.push(from); }
       if (to)   { sql += ' AND recorded_at <= ?'; params.push(to); }
 
-      sql += ' ORDER BY recorded_at DESC LIMIT ?';
+      sql += ' ORDER BY recorded_at DESC, id DESC LIMIT ?';
       params.push(limit);
 
       getDb().all<PriceRecord>(sql, params, (err, rows) =>
@@ -39,7 +39,7 @@ export class PriceRepository {
     return new Promise((resolve, reject) => {
       getDb().get<PriceRecord>(
         `SELECT * FROM price_history WHERE coin_id = ?
-         ORDER BY recorded_at DESC LIMIT 1`,
+         ORDER BY recorded_at DESC, id DESC LIMIT 1`,
         [coinId],
         (err, row) => (err ? reject(err) : resolve(row))
       );

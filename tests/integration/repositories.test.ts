@@ -26,8 +26,7 @@ describe('Repositories (integration, in-memory SQLite)', () => {
     });
   });
 
-  // ---------- CoinRepository ----------
-
+  // CoinRepository 
   describe('CoinRepository', () => {
     it('creates a coin and returns it with an id', async () => {
       const coin = await coins.create('BTC', 'Bitcoin');
@@ -96,8 +95,7 @@ describe('Repositories (integration, in-memory SQLite)', () => {
     });
   });
 
-  // ---------- PriceRepository ----------
-
+  //  PriceRepository 
   describe('PriceRepository', () => {
     let coinId: number;
     beforeEach(async () => {
