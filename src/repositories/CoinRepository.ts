@@ -2,12 +2,19 @@ import { getDb } from '../db/connection';
 
 export interface Coin {
   id: number;
+  cmc_id: number;
   symbol: string;
   name: string;
+  last_updated_at: string | null;
   created_at: string;
   updated_at: string;
 }
-
+export interface CreateCoinInput {
+  cmcId: number;
+  symbol: string;
+  name: string;
+  lastUpdatedAt?: string;
+}
 export class CoinRepository {
   findAll(): Promise<Coin[]> {
     return new Promise((resolve, reject) => {
@@ -38,11 +45,11 @@ export class CoinRepository {
     });
   }
 
-  create(symbol: string, name: string): Promise<Coin> {
+  create(input: CreateCoinInput): Promise<Coin> {
     return new Promise((resolve, reject) => {
       getDb().run(
-        'INSERT INTO coins (symbol, name) VALUES (?, ?)',
-        [symbol.toUpperCase(), name],
+        'INSERT INTO coins (cmc_id, symbol, name, last_updated_at) VALUES (?,?,?,?)',
+        [input.cmcId, input.symbol.toUpperCase(), input.name, input.lastUpdatedAt ?? null],
         function (err) {
           if (err) return reject(err);
           getDb().get<Coin>(
@@ -55,12 +62,12 @@ export class CoinRepository {
     });
   }
 
-  update(id: number, symbol: string, name: string): Promise<Coin | undefined> {
+  updateName(id: number, name: string): Promise<Coin | undefined> {
     return new Promise((resolve, reject) => {
       getDb().run(
-        `UPDATE coins SET symbol = ?, name = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        `UPDATE coins SET name = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE id = ?`,
-        [symbol.toUpperCase(), name, id],
+        [name, id],
         function (err) {
           if (err) return reject(err);
           if (this.changes === 0) return resolve(undefined);
@@ -80,6 +87,16 @@ export class CoinRepository {
         if (err) return reject(err);
         resolve(this.changes > 0);
       });
+    });
+  }
+  
+  touchLastUpdated(id: number, isoTime: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      getDb().run(
+        `UPDATE coins SET last_updated_at = ? WHERE id = ?`,
+        [isoTime, id],
+        (err) => (err ? reject(err) : resolve())
+      );
     });
   }
 }

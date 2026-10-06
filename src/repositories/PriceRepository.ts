@@ -8,11 +8,11 @@ export interface PriceRecord {
 }
 
 export class PriceRepository {
-  insert(coinId: number, price: number): Promise<void> {
+  insert(coinId: number, price: number, currency: string): Promise<void> {
     return new Promise((resolve, reject) => {
       getDb().run(
-        'INSERT INTO price_history (coin_id, price) VALUES (?, ?)',
-        [coinId, price],
+        'INSERT INTO price_history (coin_id, price, currency) VALUES (?,?,?)',
+        [coinId, price, currency],
         (err) => (err ? reject(err) : resolve())
       );
     });

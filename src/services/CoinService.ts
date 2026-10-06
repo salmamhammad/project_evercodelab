@@ -1,14 +1,15 @@
 import { CoinRepository, Coin } from '../repositories/CoinRepository';
 import { PriceRepository, PriceRecord } from '../repositories/PriceRepository';
-import { BinanceService } from './BinanceService';
+import { CoinMarketCapService } from './CoinMarketCapService';
 import { ConflictError, NotFoundError } from '../errors/AppError';
 import { logger } from '../utils/logger';
+import { config } from '../config';
 
 export class CoinService {
   constructor(
     private coins = new CoinRepository(),
     private prices = new PriceRepository(),
-    private binance = new BinanceService()
+    private cmc = new CoinMarketCapService()
   ) {}
 
   list(): Promise<Coin[]> {
@@ -20,25 +21,29 @@ export class CoinService {
     if (!coin) throw new NotFoundError(`Coin ${id} not found`);
     return coin;
   }
-
+  // Adds a tracked coin
   async add(symbol: string, name: string): Promise<Coin> {
     const normalized = symbol.trim().toUpperCase();
-    const existing = await this.coins.findBySymbol(symbol);
-    if (existing) throw new ConflictError(`Coin ${symbol} already tracked`);
+    const existing = await this.coins.findBySymbol(normalized);
+    if (existing) throw new ConflictError(`Coin ${normalized} already tracked`);
 
-    try {
-      await this.binance.getCurrentPrice(normalized);
-    } catch (err) {
-      throw err;
-    }
+    
+    const quote = await this.cmc.getQuoteBySymbol(normalized);
+    
+    const coin = await this.coins.create({
+      cmcId: quote.cmcId,
+      symbol: quote.symbol,
+      name: name ?? quote.name,
+      lastUpdatedAt: quote.lastUpdated,
+    });
 
-    const coin = await this.coins.create(normalized, name);
+    await this.prices.insert(coin.id, quote.price, config.cmc.quoteCurrency);
     logger.info('Coin added', { id: coin.id, symbol: coin.symbol });
     return coin;
   }
 
   async update(id: number, symbol: string, name: string): Promise<Coin> {
-    const coin = await this.coins.update(id, symbol, name);
+    const coin = await this.coins.updateName(id, name);
     if (!coin) throw new NotFoundError(`Coin ${id} not found`);
     return coin;
   }
@@ -48,10 +53,14 @@ export class CoinService {
     if (!ok) throw new NotFoundError(`Coin ${id} not found`);
   }
 
-  async getCurrentPrice(id: number): Promise<{ coin: Coin; price: number }> {
+  async getCurrentPrice(id: number): Promise<{ coin: Coin; price: number ; currency: string }> {
     const coin = await this.getById(id);
-    const price = await this.binance.getCurrentPrice(coin.symbol);
-    return { coin, price };
+    const quote  = await this.cmc.getQuoteById(coin.cmc_id);
+    // for updating last_updated_at and store the observation
+    await this.coins.touchLastUpdated(coin.id, quote.lastUpdated);
+    await this.prices.insert(coin.id, quote.price, quote.currency);
+
+    return { coin, price: quote.price, currency: quote.currency };
   }
 
   async getHistory(id: number, limit: number, from?: string, to?: string): Promise<PriceRecord[]> {

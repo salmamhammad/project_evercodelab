@@ -1,7 +1,9 @@
 CREATE TABLE IF NOT EXISTS coins (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cmc_id      INTEGER NOT NULL UNIQUE, 
   symbol TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
+  last_updated_at TEXT,   
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
@@ -10,6 +12,7 @@ CREATE TABLE IF NOT EXISTS price_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   coin_id INTEGER NOT NULL,
   price REAL NOT NULL,
+  currency     TEXT    NOT NULL DEFAULT 'USD',
   recorded_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   FOREIGN KEY (coin_id) REFERENCES coins(id) ON DELETE CASCADE
 );

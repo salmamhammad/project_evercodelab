@@ -5,33 +5,41 @@ import { PriceRepository } from '../../src/repositories/PriceRepository';
 import { CoinService } from '../../src/services/CoinService';
 import { NotFoundError, ConflictError, ExternalApiError } from '../../src/errors/AppError';
 
-//  Mock BinanceService 
-class MockBinanceService {
+//  Mock MockCoinMarketCapService 
+class MockCoinMarketCapService {
   public calls: string[] = [];
   public shouldFail = false;
   public failureError: Error = new ExternalApiError('mock failure');
-  public priceMap: Record<string, number> = {
-    BTCUSDT: 50000,
-    ETHUSDT: 3000,
-    SOLUSDT: 100,
+  public quotes: Record<string, any> = {
+    BTC: { cmcId: 1, symbol: 'BTC', name: 'Bitcoin', price: 50000, currency: 'USD', lastUpdated: '2026-10-05T18:00:00.000Z' },
+    ETH: { cmcId: 1027, symbol: 'ETH', name: 'Ethereum', price: 3000, currency: 'USD', lastUpdated: '2026-10-05T18:00:00.000Z' },
+    SOL: { cmcId: 5426, symbol: 'SOL', name: 'Solana', price: 100, currency: 'USD', lastUpdated: '2026-10-05T18:00:00.000Z' },
   };
-
-  async getCurrentPrice(symbol: string): Promise<number> {
-    this.calls.push(symbol);
+  public quotesById: Record<number, any> = {}
+  constructor() {
+    for (const q of Object.values(this.quotes)) this.quotesById[q.cmcId] = q;
+  }
+  async getQuoteBySymbol(symbol: string){
+    this.calls.push(`symbol:${symbol.toUpperCase()}`);
     if (this.shouldFail) throw this.failureError;
-    const key = `${symbol.toUpperCase()}USDT`;
-    if (!(key in this.priceMap)) {
-      throw new NotFoundError(`Symbol ${symbol} not found`);
-    }
-    return this.priceMap[key];
+    const q = this.quotes[symbol.toUpperCase()];
+    if (!q) throw new NotFoundError(`Symbol ${symbol} not found on CoinMarketCap`);
+    return q;
+  }
+  async getQuoteById(id: number) {
+    this.calls.push(`id:${id}`);
+    if (this.shouldFail) throw this.failureError;
+    const q = this.quotesById[id];
+    if (!q) throw new NotFoundError(`Id ${id} not found on CoinMarketCap`);
+    return q;
   }
 }
 
 //  tests
-describe('CoinService (integration, real DB + mocked Binance)', () => {
+describe('CoinService (integration, real DB + mocked MockCoinMarketCap)', () => {
   let coins: CoinRepository;
   let prices: PriceRepository;
-  let binance: MockBinanceService;
+  let cmc: MockCoinMarketCapService;
   let service: CoinService;
 
   beforeAll(async () => {
@@ -54,9 +62,9 @@ describe('CoinService (integration, real DB + mocked Binance)', () => {
 
     coins = new CoinRepository();
     prices = new PriceRepository();
-    binance = new MockBinanceService();
+    cmc = new MockCoinMarketCapService();
 
-    service = new CoinService(coins, prices, binance as any);
+    service = new CoinService(coins, prices, cmc as any);
   });
   describe('list()', () => {
   it('returns an empty array when no coins exist', async () => {
@@ -64,8 +72,8 @@ describe('CoinService (integration, real DB + mocked Binance)', () => {
   });
 
   it('returns all tracked coins', async () => {
-    await coins.create('BTC', 'Bitcoin');
-    await coins.create('ETH', 'Ethereum');
+    await coins.create({ cmcId: 1, symbol: 'BTC', name: 'Bitcoin' });
+    await coins.create({ cmcId: 1027, symbol: 'ETH', name: 'Ethereum' });
 
     const result = await service.list();
     expect(result.map((c) => c.symbol)).toEqual(['BTC', 'ETH']);
@@ -74,7 +82,7 @@ describe('CoinService (integration, real DB + mocked Binance)', () => {
 
 describe('getById()', () => {
   it('returns the coin when it exists', async () => {
-    const created = await coins.create('BTC', 'Bitcoin');
+    const created = await coins.create({ cmcId: 1, symbol: 'BTC', name: 'Bitcoin' });
     const found = await service.getById(created.id);
     expect(found.symbol).toBe('BTC');
   });
@@ -85,37 +93,35 @@ describe('getById()', () => {
 });
 
 describe('add()', () => {
-  it('creates a coin when the symbol is valid on Binance', async () => {
+  it('creates a coin when the symbol is valid on MockCoinMarketCap', async () => {
     const coin = await service.add('BTC', 'Bitcoin');
 
     expect(coin.symbol).toBe('BTC');
     expect(coin.name).toBe('Bitcoin');
+    expect(coin.cmc_id).toBe(1);
     expect(coin.id).toBeGreaterThan(0);
+    expect(coin.last_updated_at).toBe('2026-10-05T18:00:00.000Z');
 
     // Verify it was persisted
     expect(await coins.findById(coin.id)).toBeDefined();
 
-    // Verify Binance was consulted exactly once
-    expect(binance.calls).toEqual(['BTC']);
+
+    // cmc  was consulted exactly once
+    expect(cmc.calls).toEqual(['symbol:BTC']);
   });
 
-  it('uppercases the symbol before saving and validating', async () => {
-    const coin = await service.add('btc', 'Bitcoin');
-    expect(coin.symbol).toBe('BTC');
-    expect(binance.calls).toEqual(['BTC']);
-  });
 
   it('throws ConflictError when the symbol is already tracked', async () => {
     await service.add('BTC', 'Bitcoin');
-
+    cmc.calls = [];
     await expect(service.add('BTC', 'Bitcoin Again'))
       .rejects.toThrow(ConflictError);
 
-    // Binance must NOT have been called the second time 
-    expect(binance.calls).toEqual(['BTC']);
+     // The duplicate check must run before CMC is called
+    expect(cmc.calls).toEqual([]);
   });
 
-  it('propagates NotFoundError when Binance rejects the symbol', async () => {
+  it('propagates NotFoundError when cmc rejects the symbol', async () => {
     await expect(service.add('FAKE', 'Fake Coin'))
       .rejects.toThrow(NotFoundError);
 
@@ -123,8 +129,8 @@ describe('add()', () => {
     expect(await coins.findBySymbol('FAKE')).toBeUndefined();
   });
 
-  it('propagates ExternalApiError when Binance is unreachable', async () => {
-    binance.shouldFail = true;
+  it('propagates ExternalApiError when cmc is unreachable', async () => {
+    cmc.shouldFail = true;
 
     await expect(service.add('BTC', 'Bitcoin'))
       .rejects.toThrow(ExternalApiError);
@@ -136,9 +142,16 @@ describe('add()', () => {
 
 describe('update()', () => {
   it('updates an existing coin', async () => {
-    const c = await coins.create('BTC', 'Bitcoin');
+    const c = await coins.create({
+        cmcId: 1,
+        symbol: 'BTC',
+        name: 'Bitcoin',
+      });
     const u = await service.update(c.id, 'BTC', 'Bitcoin Core');
     expect(u.name).toBe('Bitcoin Core');
+    // symbol and cmc_id are immutable
+    expect(u.symbol).toBe('BTC');
+    expect(u.cmc_id).toBe(1);
   });
 
   it('throws NotFoundError for a missing id', async () => {
@@ -149,7 +162,11 @@ describe('update()', () => {
 
 describe('remove()', () => {
   it('deletes an existing coin', async () => {
-    const c = await coins.create('BTC', 'Bitcoin');
+    const c = await coins.create({
+        cmcId: 1,
+        symbol: 'BTC',
+        name: 'Bitcoin',
+      });
     await service.remove(c.id);
     expect(await coins.findById(c.id)).toBeUndefined();
   });
@@ -159,8 +176,12 @@ describe('remove()', () => {
   });
 
   it('cascades to price history', async () => {
-    const c = await coins.create('BTC', 'Bitcoin');
-    await prices.insert(c.id, 50000);
+    const c = await coins.create({
+        cmcId: 1,
+        symbol: 'BTC',
+        name: 'Bitcoin',
+      });
+    await prices.insert(c.id, 50000, 'USD');
 
     await service.remove(c.id);
 
@@ -169,27 +190,45 @@ describe('remove()', () => {
 });
 
 describe('getCurrentPrice()', () => {
-  it('returns the coin and its current price from Binance', async () => {
-    const c = await coins.create('BTC', 'Bitcoin');
+  it('returns the coin and its current price from MockCoinMarketCap', async () => {
+    const c = await coins.create({
+        cmcId: 1,
+        symbol: 'BTC',
+        name: 'Bitcoin',
+      });
 
     const result = await service.getCurrentPrice(c.id);
 
     expect(result.coin.id).toBe(c.id);
     expect(result.price).toBe(50000);
-    expect(binance.calls).toEqual(['BTC']);
+    expect(result.currency).toBe('USD');
+    expect(cmc.calls).toEqual(['id:1']);
+
+    // last_updated_at was refreshed
+    const refreshed = await coins.findById(c.id);
+    expect(refreshed?.last_updated_at).toBe('2026-10-05T18:00:00.000Z');
+
+    // A new price_history row was inserted
+    const history = await prices.findByCoinId(c.id, 10);
+    expect(history).toHaveLength(1);
+    expect(history[0].price).toBe(50000);
   });
 
   it('throws NotFoundError if the coin is not tracked', async () => {
     await expect(service.getCurrentPrice(99999))
       .rejects.toThrow(NotFoundError);
 
-    // Binance should not have been called — the coin lookup failed first
-    expect(binance.calls).toEqual([]);
+    // cmc should not have been called — the coin lookup failed first
+    expect(cmc.calls).toEqual([]);
   });
 
-  it('propagates ExternalApiError if Binance fails', async () => {
-    const c = await coins.create('BTC', 'Bitcoin');
-    binance.shouldFail = true;
+  it('propagates ExternalApiError if cmc fails', async () => {
+    const c = await coins.create({
+        cmcId: 1,
+        symbol: 'BTC',
+        name: 'Bitcoin',
+    });
+    cmc.shouldFail = true;
 
     await expect(service.getCurrentPrice(c.id))
       .rejects.toThrow(ExternalApiError);
@@ -198,10 +237,14 @@ describe('getCurrentPrice()', () => {
 
 describe('getHistory()', () => {
   it('returns price history for a tracked coin', async () => {
-    const c = await coins.create('BTC', 'Bitcoin');
-    await prices.insert(c.id, 100);
-    await prices.insert(c.id, 200);
-    await prices.insert(c.id, 300);
+    const c = await coins.create({
+        cmcId: 1,
+        symbol: 'BTC',
+        name: 'Bitcoin',
+      });
+    await prices.insert(c.id, 100, 'USD');
+    await prices.insert(c.id, 200, 'USD');
+    await prices.insert(c.id, 300, 'USD');
 
     const history = await service.getHistory(c.id, 10);
 
@@ -210,10 +253,14 @@ describe('getHistory()', () => {
   });
 
   it('respects the limit parameter', async () => {
-    const c = await coins.create('BTC', 'Bitcoin');
-    await prices.insert(c.id, 100);
-    await prices.insert(c.id, 200);
-    await prices.insert(c.id, 300);
+    const c = await coins.create({
+        cmcId: 1,
+        symbol: 'BTC',
+        name: 'Bitcoin',
+      });
+    await prices.insert(c.id, 100, 'USD');
+    await prices.insert(c.id, 200, 'USD');
+    await prices.insert(c.id, 300, 'USD');
 
     const history = await service.getHistory(c.id, 2);
     expect(history).toHaveLength(2);
@@ -225,8 +272,13 @@ describe('getHistory()', () => {
   });
 
   it('returns an empty array when the coin has no price history', async () => {
-    const c = await coins.create('BTC', 'Bitcoin');
+    const c = await coins.create({
+        cmcId: 1,
+        symbol: 'BTC',
+        name: 'Bitcoin',
+      });
     expect(await service.getHistory(c.id, 10)).toEqual([]);
   });
+  
 });
 });
