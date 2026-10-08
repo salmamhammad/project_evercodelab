@@ -147,7 +147,7 @@ describe('update()', () => {
         symbol: 'BTC',
         name: 'Bitcoin',
       });
-    const u = await service.update(c.id, 'BTC', 'Bitcoin Core');
+    const u = await service.update(c.id, 'Bitcoin Core');
     expect(u.name).toBe('Bitcoin Core');
     // symbol and cmc_id are immutable
     expect(u.symbol).toBe('BTC');
@@ -155,7 +155,7 @@ describe('update()', () => {
   });
 
   it('throws NotFoundError for a missing id', async () => {
-    await expect(service.update(99999, 'BTC', 'Bitcoin'))
+    await expect(service.update(99999, 'Bitcoin'))
       .rejects.toThrow(NotFoundError);
   });
 });

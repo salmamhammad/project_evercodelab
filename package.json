@@ -4,7 +4,12 @@
   "description": "��#\u0000 \u0000p\u0000r\u0000o\u0000j\u0000e\u0000c\u0000t\u0000_\u0000e\u0000v\u0000e\u0000r\u0000c\u0000o\u0000d\u0000e\u0000l\u0000a\u0000b\u0000\r\u0000 \u0000",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon --exec ts-node src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "jest --runInBand",
+    "test:watch": "jest --runInBand --watch",
+    "test:coverage": "jest --runInBand --coverage"
   },
   "keywords": [],
   "author": "",
@@ -29,6 +34,7 @@
     "nodemon": "^3.1.14",
     "supertest": "^7.3.1",
     "ts-jest": "^29.4.14",
+    "ts-node": "^10.9.2",
     "tsx": "^4.23.15",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   }

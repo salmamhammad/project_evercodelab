@@ -9,7 +9,7 @@ export class TaskScheduler {
   private intervalId: NodeJS.Timeout | null = null;
   private timers: NodeJS.Timeout[] = [];
   private isRunning = false;
-
+  private runningPromise: Promise<void> | null = null; 
   constructor(
     private coins = new CoinRepository(),
     private prices = new PriceRepository(),
@@ -21,24 +21,28 @@ export class TaskScheduler {
     if (this.intervalId) return;
     logger.info('Scheduler started', { intervalMs: config.syncIntervalMs });
     this.intervalId = setInterval(() => {
-      void this.syncPrices();
+      this.runningPromise = this.syncPrices();
     }, config.syncIntervalMs);
     // Allow process to exit even if the interval is still set
     this.intervalId.unref?.();
   }
 
   // Stop the loop and clear every timer
-  stop(): Promise<void> {
-    return new Promise((resolve) => {
+ async stop(): Promise<void> {
       if (this.intervalId) {
         clearInterval(this.intervalId);
         this.intervalId = null;
       }
       this.timers.forEach((t) => clearTimeout(t));
       this.timers = [];
+    // Wait for any in-flight sync to complete
+    if (this.runningPromise) {
+      try { await this.runningPromise; } catch { /* exist in syncPrices */ }
+      this.runningPromise = null;
+    }
       logger.info('Scheduler stopped');
-      resolve();
-    });
+      
+   
   }
 
   async syncPrices(): Promise<void> {

@@ -216,24 +216,27 @@ describe('syncPrices()', () => {
     });
 
     it('stop() prevents further scheduled syncs', async () => {
-      const originalInterval = (require('../../src/config') as any).config.syncIntervalMs;
-      // Speed up the interval for this test only
-      (require('../../src/config') as any).config.syncIntervalMs = 30;
+      const cfg = (require('../../src/config') as any).config;
+      const originalInterval = cfg.syncIntervalMs;
+      cfg.syncIntervalMs = 30;
 
-      await coins.create({ cmcId: 1, symbol: 'BTC', name: 'Bitcoin' });
+       try {
+         await coins.create({ cmcId: 1, symbol: 'BTC', name: 'Bitcoin' });
 
-      scheduler.start();
-      await new Promise((r) => setTimeout(r, 80));   // ~2 ticks
-      await scheduler.stop();
+         // Rebuild the scheduler so it picks up the new interval
+         scheduler = new TaskScheduler(coins, prices, cmc as any);
 
-      const callsAfterStop = cmc.calls.length;
+         scheduler.start();
+         await new Promise((r) => setTimeout(r, 80));   
 
-      // Wait well beyond one interval 
-      await new Promise((r) => setTimeout(r, 100));
-      expect(cmc.calls.length).toBe(callsAfterStop);
+         await scheduler.stop();                       
+         const callsAfterStop = cmc.calls.length;
 
-      // Restore
-      (require('../../src/config') as any).config.syncIntervalMs = originalInterval;
-    });
+         await new Promise((r) => setTimeout(r, 100));
+         expect(cmc.calls.length).toBe(callsAfterStop);
+      } finally {
+         cfg.syncIntervalMs = originalInterval;
+        }
+     });
   });
 });

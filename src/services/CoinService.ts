@@ -42,7 +42,7 @@ export class CoinService {
     return coin;
   }
 
-  async update(id: number, symbol: string, name: string): Promise<Coin> {
+  async update(id: number, name: string): Promise<Coin> {
     const coin = await this.coins.updateName(id, name);
     if (!coin) throw new NotFoundError(`Coin ${id} not found`);
     return coin;
