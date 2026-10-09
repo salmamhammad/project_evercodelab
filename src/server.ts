@@ -8,8 +8,6 @@ import { logger } from './utils/logger';
 async function bootstrap() {
   await initDb();
   await runMigrations();
- console.log('CMC key length:', config.cmc.apiKey.length);
- console.log('CMC key chars:', JSON.stringify(config.cmc.apiKey)); 
   const scheduler = new TaskScheduler();
   scheduler.start();
   void scheduler.syncPrices();
