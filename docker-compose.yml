@@ -1,0 +1,47 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: project_evercodelab:latest
+    container_name: project_evercodelab
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_KEY: ${API_KEY}
+      DB_PATH: /app/data/crypto.db
+      SYNC_INTERVAL_MS: ${SYNC_INTERVAL_MS:-60000}
+      CMC_API_KEY: ${CMC_API_KEY}
+      CMC_BASE_URL: https://pro-api.coinmarketcap.com
+      CMC_TIMEOUT: 10000
+      CMC_QUOTE_CURRENCY: USD
+    volumes:
+      - crypto-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    image: project_evercodelab-test:latest
+    container_name: project_evercodelab-test
+    profiles: ["test"]
+    environment:
+      NODE_ENV: test
+      DB_PATH: ":memory:"
+      API_KEY: test-api-key
+      CMC_API_KEY: test-cmc-key
+      CMC_QUOTE_CURRENCY: USD
+      CMC_BASE_URL: https://pro-api.coinmarketcap.com
+      CMC_TIMEOUT: 5000
+    command: ["npx", "jest", "--runInBand", "--coverage"]
+
+volumes:
+  crypto-data:
