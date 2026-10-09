@@ -63,7 +63,7 @@ export class CoinMarketCapService  {
       if (!entry) throw new NotFoundError(`Symbol/id ${lookupKey} not found on CoinMarketCap`);
 
       const quote = entry.quote?.[config.cmc.quoteCurrency];
-      if (!quote) {
+      if (!quote || typeof quote.price !== 'number') {
         throw new ExternalApiError(
           `CMC did not return a ${config.cmc.quoteCurrency} quote for ${lookupKey}`
         );

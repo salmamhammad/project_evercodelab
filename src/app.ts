@@ -27,7 +27,7 @@ export function createApp(deps: AppDeps = {}): Express {
     definition: {
       openapi: '3.0.0',
       info: {
-        title: 'Crypto Tracker API (CoinMarketCap)',
+        title: 'Project_evercodelab API (CoinMarketCap)',
         version: '1.0.0',
         description:
           'Tracks cryptocurrency prices via CoinMarketCap. All prices are quoted in USD.',
@@ -41,7 +41,7 @@ export function createApp(deps: AppDeps = {}): Express {
     },
     apis: ['./src/routes/*.ts'],
   });
-
+ 
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
   app.get('/swagger.json', (_req, res) => res.json(swaggerSpec));
 
