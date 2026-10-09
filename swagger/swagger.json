@@ -1,0 +1,260 @@
+﻿{
+    "openapi":  "3.0.0",
+    "info":  {
+                 "title":  "Project_evercodelab API (CoinMarketCap)",
+                 "version":  "1.0.0",
+                 "description":  "Tracks cryptocurrency prices via CoinMarketCap. All prices are quoted in USD."
+             },
+    "components":  {
+                       "securitySchemes":  {
+                                               "bearerAuth":  {
+                                                                  "type":  "http",
+                                                                  "scheme":  "bearer"
+                                                              }
+                                           }
+                   },
+    "security":  [
+                     {
+                         "bearerAuth":  [
+
+                                        ]
+                     }
+                 ],
+    "paths":  {
+                  "/api/coins/{id}/current":  {
+                                                  "get":  {
+                                                              "summary":  "Get the current price from CoinMarketCap",
+                                                              "security":  [
+                                                                               {
+                                                                                   "bearerAuth":  [
+
+                                                                                                  ]
+                                                                               }
+                                                                           ],
+                                                              "responses":  {
+                                                                                "200":  {
+                                                                                            "description":  "Current price"
+                                                                                        },
+                                                                                "400":  {
+                                                                                            "description":  "Invalid id"
+                                                                                        },
+                                                                                "404":  {
+                                                                                            "description":  "Coin not tracked"
+                                                                                        },
+                                                                                "502":  {
+                                                                                            "description":  "CoinMarketCap unavailable"
+                                                                                        }
+                                                                            }
+                                                          }
+                                              },
+                  "/api/coins/{id}/history":  {
+                                                  "get":  {
+                                                              "summary":  "Get stored price history",
+                                                              "security":  [
+                                                                               {
+                                                                                   "bearerAuth":  [
+
+                                                                                                  ]
+                                                                               }
+                                                                           ],
+                                                              "parameters":  [
+                                                                                 {
+                                                                                     "in":  "path",
+                                                                                     "name":  "id",
+                                                                                     "required":  true,
+                                                                                     "schema":  {
+                                                                                                    "type":  "integer",
+                                                                                                    "minimum":  1
+                                                                                                }
+                                                                                 },
+                                                                                 {
+                                                                                     "in":  "query",
+                                                                                     "name":  "limit",
+                                                                                     "schema":  {
+                                                                                                    "type":  "integer",
+                                                                                                    "minimum":  1,
+                                                                                                    "maximum":  1000,
+                                                                                                    "default":  100
+                                                                                                }
+                                                                                 },
+                                                                                 {
+                                                                                     "in":  "query",
+                                                                                     "name":  "from",
+                                                                                     "schema":  {
+                                                                                                    "type":  "string",
+                                                                                                    "format":  "date-time"
+                                                                                                }
+                                                                                 },
+                                                                                 {
+                                                                                     "in":  "query",
+                                                                                     "name":  "to",
+                                                                                     "schema":  {
+                                                                                                    "type":  "string",
+                                                                                                    "format":  "date-time"
+                                                                                                }
+                                                                                 }
+                                                                             ],
+                                                              "responses":  {
+                                                                                "200":  {
+                                                                                            "description":  "Price history"
+                                                                                        },
+                                                                                "400":  {
+                                                                                            "description":  "Invalid query"
+                                                                                        },
+                                                                                "404":  {
+                                                                                            "description":  "Coin not tracked"
+                                                                                        }
+                                                                            }
+                                                          }
+                                              },
+                  "/api/coins":  {
+                                     "get":  {
+                                                 "summary":  "List all tracked coins",
+                                                 "security":  [
+                                                                  {
+                                                                      "bearerAuth":  [
+
+                                                                                     ]
+                                                                  }
+                                                              ],
+                                                 "responses":  {
+                                                                   "200":  {
+                                                                               "description":  "List of tracked coins"
+                                                                           },
+                                                                   "401":  {
+                                                                               "description":  "Unauthorized"
+                                                                           }
+                                                               }
+                                             },
+                                     "post":  {
+                                                  "summary":  "Start tracking a new coin (validated against CoinMarketCap)",
+                                                  "security":  [
+                                                                   {
+                                                                       "bearerAuth":  [
+
+                                                                                      ]
+                                                                   }
+                                                               ],
+                                                  "requestBody":  {
+                                                                      "required":  true,
+                                                                      "content":  {
+                                                                                      "application/json":  {
+                                                                                                               "schema":  {
+                                                                                                                              "type":  "object",
+                                                                                                                              "required":  [
+                                                                                                                                               "symbol"
+                                                                                                                                           ],
+                                                                                                                              "properties":  {
+                                                                                                                                                 "symbol":  {
+                                                                                                                                                                "type":  "string",
+                                                                                                                                                                "example":  "BTC"
+                                                                                                                                                            },
+                                                                                                                                                 "name":  {
+                                                                                                                                                              "type":  "string",
+                                                                                                                                                              "example":  "Bitcoin"
+                                                                                                                                                          }
+                                                                                                                                             }
+                                                                                                                          }
+                                                                                                           }
+                                                                                  }
+                                                                  },
+                                                  "responses":  {
+                                                                    "201":  {
+                                                                                "description":  "Coin created"
+                                                                            },
+                                                                    "400":  {
+                                                                                "description":  "Invalid input"
+                                                                            },
+                                                                    "404":  {
+                                                                                "description":  "Symbol not found on CoinMarketCap"
+                                                                            },
+                                                                    "409":  {
+                                                                                "description":  "Symbol already tracked"
+                                                                            },
+                                                                    "502":  {
+                                                                                "description":  "CoinMarketCap unavailable"
+                                                                            }
+                                                                }
+                                              }
+                                 },
+                  "/api/coins/{id}":  {
+                                          "get":  {
+                                                      "summary":  "Get one tracked coin by id",
+                                                      "security":  [
+                                                                       {
+                                                                           "bearerAuth":  [
+
+                                                                                          ]
+                                                                       }
+                                                                   ],
+                                                      "parameters":  [
+                                                                         {
+                                                                             "in":  "path",
+                                                                             "name":  "id",
+                                                                             "required":  true,
+                                                                             "schema":  {
+                                                                                            "type":  "integer",
+                                                                                            "minimum":  1
+                                                                                        }
+                                                                         }
+                                                                     ],
+                                                      "responses":  {
+                                                                        "200":  {
+                                                                                    "description":  "The coin"
+                                                                                },
+                                                                        "400":  {
+                                                                                    "description":  "Invalid id"
+                                                                                },
+                                                                        "404":  {
+                                                                                    "description":  "Coin not found"
+                                                                                }
+                                                                    }
+                                                  },
+                                          "put":  {
+                                                      "summary":  "Rename a tracked coin (symbol and cmc_id are immutable)",
+                                                      "security":  [
+                                                                       {
+                                                                           "bearerAuth":  [
+
+                                                                                          ]
+                                                                       }
+                                                                   ],
+                                                      "responses":  {
+                                                                        "200":  {
+                                                                                    "description":  "Coin updated"
+                                                                                },
+                                                                        "400":  {
+                                                                                    "description":  "Invalid input"
+                                                                                },
+                                                                        "404":  {
+                                                                                    "description":  "Coin not found"
+                                                                                }
+                                                                    }
+                                                  },
+                                          "delete":  {
+                                                         "summary":  "Stop tracking a coin (cascades to price history)",
+                                                         "security":  [
+                                                                          {
+                                                                              "bearerAuth":  [
+
+                                                                                             ]
+                                                                          }
+                                                                      ],
+                                                         "responses":  {
+                                                                           "204":  {
+                                                                                       "description":  "Deleted"
+                                                                                   },
+                                                                           "400":  {
+                                                                                       "description":  "Invalid id"
+                                                                                   },
+                                                                           "404":  {
+                                                                                       "description":  "Coin not found"
+                                                                                   }
+                                                                       }
+                                                     }
+                                      }
+              },
+    "tags":  [
+
+             ]
+}
